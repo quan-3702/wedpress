@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WedPress – Wedding Seating Chart &amp; Stationery</title>
+  <meta name="description" content="Plan your wedding seating chart with drag and drop, then print the seating chart, place cards, table numbers, save-the-dates and invitations. Private and offline.">
+  <meta name="theme-color" content="#7c3a4e">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="icon-192.png" alt="" width="30" height="30"><span>WedPress</span></div>
+    <nav class="tabs" id="tabs">
+      <button data-t="guests" class="on">👥 Guests</button>
+      <button data-t="seating">🪑 Seating</button>
+      <button data-t="print">🖨 Print</button>
+    </nav>
+    <div class="top-btns">
+      <button id="moreBtn" class="tb">☰ More</button>
+      <button id="proBtn" class="pro-btn" hidden>★ Get Pro</button>
+    </div>
+    <div id="menu" class="menu" hidden>
+      <button id="backupBtn">Save a backup file</button>
+      <button id="restoreBtn2">Open a backup file…</button>
+      <button id="csvOutBtn">Export guest list (CSV for Excel)</button>
+      <button id="sampleBtn">Load the sample wedding</button>
+      <button id="clearBtn" class="danger">Start a new empty plan…</button>
+      <a href="help.html" target="_blank" rel="noopener">❓ How to use WedPress</a>
+      <a href="mailto:thequan03072002@gmail.com?subject=WedPress%20feedback">✉ Feedback &amp; support</a>
+      <a href="https://apps.microsoft.com/detail/9MWSF3JMP1GJ" target="_blank" rel="noopener">More apps: PrintCal – photo cards &amp; calendars</a>
+    </div>
+    <input id="fileIn" type="file" hidden>
+  </header>
+
+  <!-- ===== Guests ===== -->
+  <main id="pane-guests" class="pane">
+    <section class="side">
+      <h2>Your wedding</h2>
+      <label class="field">Couple<input id="couple" type="text" maxlength="60" placeholder="e.g. Emma &amp; James"></label>
+      <label class="field">Date<input id="wdate" type="text" maxlength="60" placeholder="e.g. Saturday, June 12, 2027"></label>
+      <label class="field">Place<input id="venue" type="text" maxlength="80" placeholder="e.g. Rosewood Gardens, Austin, Texas"></label>
+      <h2>Add guests</h2>
+      <p class="hint">Type or paste names, one guest on each line. Put a blank line between families or groups – they stay together at the same table.</p>
+      <textarea id="addBox" rows="9" placeholder="John Carter&#10;Mary Carter&#10;&#10;Anna Lee&#10;Tom Lee"></textarea>
+      <label class="field">Group / side (optional)<input id="addParty" type="text" maxlength="40" placeholder="e.g. Bride's family, College friends"></label>
+      <div class="row-btns"><button id="addBtn" class="primary">＋ Add these guests</button><button id="csvInBtn" class="ghost">Import CSV / Excel list…</button></div>
+      <div id="stats" class="stats"></div>
+    </section>
+    <section class="main-col">
+      <div class="list-head">
+        <input id="gSearch" type="search" placeholder="Search guests…">
+        <select id="gFilter"><option value="all">Everyone</option><option value="yes">Attending</option><option value="maybe">Not answered yet</option><option value="no">Can't come</option><option value="unseated">Not seated yet</option></select>
+      </div>
+      <div class="table-wrap">
+        <table class="guests">
+          <thead><tr><th>Name</th><th>Group</th><th>RSVP</th><th>Meal</th><th>Table</th><th></th></tr></thead>
+          <tbody id="gBody"></tbody>
+        </table>
+      </div>
+      <p id="gEmpty" class="empty">No guests yet. Add names on the left – or click <b>☰ More → Load the sample wedding</b> to look around first.</p>
+    </section>
+  </main>
+
+  <!-- ===== Seating ===== -->
+  <main id="pane-seating" class="pane" hidden>
+    <section class="side">
+      <h2>Tables</h2>
+      <div class="two">
+        <label class="field">Shape<select id="tShape"><option value="round">Round</option><option value="rect">Long table</option></select></label>
+        <label class="field">Seats<input id="tSeats" type="number" min="2" max="30" value="8"></label>
+      </div>
+      <div class="row-btns"><button id="tAdd" class="primary">＋ Add a table</button><button id="tAddMany" class="ghost">＋ Add 5</button></div>
+      <button id="autoBtn" class="ghost wide">✨ Seat everyone automatically</button>
+      <p class="hint">Groups stay together. You can move anyone afterwards.</p>
+      <h2>Not seated yet <span id="unCount" class="muted"></span></h2>
+      <input id="uSearch" type="search" placeholder="Search…">
+      <div id="unseated" class="unseated"></div>
+      <p class="hint">Drag a name onto a table – or click a name, then click a table. Drag tables to arrange the room.</p>
+    </section>
+    <section class="main-col">
+      <div id="room" class="room"></div>
+    </section>
+  </main>
+
+  <!-- ===== Print ===== -->
+  <main id="pane-print" class="pane" hidden>
+    <section class="side">
+      <h2>What to print</h2>
+      <div id="kinds" class="kinds"></div>
+      <label class="field">Style<select id="pStyle"></select></label>
+      <div id="optPoster">
+        <label class="field">Chart layout<select id="pChartBy"><option value="name">Find your seat – names A to Z</option><option value="table">By table</option></select></label>
+        <label class="field">Size<select id="pSize"></select></label>
+        <label id="pPaperRow" class="field">Home printer paper<select id="pPaper"><option value="letter">Letter</option><option value="a4">A4</option></select></label>
+        <label class="field">Heading<input id="pHeading" type="text" maxlength="60"></label>
+      </div>
+      <div id="optSheet">
+        <label class="field">Paper<select id="pSheetPaper"><option value="letter">Letter</option><option value="a4">A4</option></select></label>
+      </div>
+      <div id="optCard">
+        <label class="field">Photo<span class="row-btns" style="margin:0"><button id="photoBtn" class="ghost">Choose a photo…</button><button id="photoDel" class="ghost">Remove</button></span></label>
+        <label class="field">Words<textarea id="pWords" rows="4"></textarea></label>
+      </div>
+      <label class="check" id="mealRow"><input id="pMeal" type="checkbox"> Show the meal on place cards</label>
+      <p id="pInfo" class="hint"></p>
+      <div class="row-btns">
+        <button id="pPrint" class="primary">🖨 Print</button>
+        <button id="pSave" class="ghost">💾 Save as picture</button>
+      </div>
+    </section>
+    <section class="main-col">
+      <div class="pager"><button id="pgPrev" class="ghost">‹</button><span id="pgInfo"></span><button id="pgNext" class="ghost">›</button></div>
+      <div id="preview" class="preview"></div>
+    </section>
+  </main>
+
+  <dialog id="guestDlg" class="dlg">
+    <h2>Guest</h2>
+    <label class="field">Name<input id="gdName" type="text" maxlength="60"></label>
+    <label class="field">Group / side<input id="gdParty" type="text" maxlength="40"></label>
+    <div class="two">
+      <label class="field">RSVP<select id="gdRsvp"><option value="maybe">Not answered yet</option><option value="yes">Attending</option><option value="no">Can't come</option></select></label>
+      <label class="field">Meal<input id="gdMeal" type="text" maxlength="30" list="meals" placeholder="e.g. Chicken"></label>
+    </div>
+    <label class="check"><input id="gdKid" type="checkbox"> Child</label>
+    <div class="row-btns"><button id="gdSave" class="primary">Save</button><button id="gdDel" class="ghost danger-text">Remove guest</button><button id="gdClose" class="ghost">Cancel</button></div>
+  </dialog>
+  <datalist id="meals"></datalist>
+
+  <dialog id="tableDlg" class="dlg">
+    <h2>Table</h2>
+    <div class="two">
+      <label class="field">Number or name<input id="tdName" type="text" maxlength="30"></label>
+      <label class="field">Seats<input id="tdSeats" type="number" min="2" max="30"></label>
+    </div>
+    <label class="field">Shape<select id="tdShape"><option value="round">Round</option><option value="rect">Long table</option></select></label>
+    <div class="row-btns"><button id="tdSave" class="primary">Save</button><button id="tdEmpty" class="ghost">Move everyone off</button><button id="tdDel" class="ghost danger-text">Delete table</button><button id="tdClose" class="ghost">Cancel</button></div>
+  </dialog>
+
+  <dialog id="proDialog" class="dlg">
+    <h2>WedPress Pro</h2>
+    <p class="muted">One-time purchase. Yours forever on this Microsoft account – no subscription.</p>
+    <ul class="pro-list">
+      <li><strong>Unlimited guests</strong> <span class="muted">(Free: 40)</span></li>
+      <li><strong>All 6 styles</strong> for every printout <span class="muted">(Free: Classic ivory and Greenery)</span></li>
+      <li><strong>Big seating chart posters</strong> – up to 24 × 36 in, as a print-shop file or on home printer sheets</li>
+      <li><strong>Save as picture</strong> – high-resolution files for any print shop</li>
+    </ul>
+    <p id="proMsg" class="pro-msg" hidden></p>
+    <div class="row-btns">
+      <button id="buyBtn" class="primary">Unlock Pro</button>
+      <button id="restoreBtn" class="ghost">Restore purchase</button>
+      <button id="closePro" class="ghost">Not now</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+  <style id="pageRule"></style>
+  <div id="printArea"></div>
+  <script src="app.js"></script>
+</body>
+</html>
