@@ -7,7 +7,7 @@ const FREE_GUESTS = 40;
 const STORE_BILLING = 'https://store.microsoft.com/billing';
 const PRO_SKU = 'wedpress_pro';
 const PRO_IDS = [PRO_SKU];
-let STORE_URL = 'https://apps.microsoft.com/search/publisher?name=NTQ37';
+let STORE_URL = 'https://apps.microsoft.com/detail/9NQXVXZFTPCF';
 let proAvailable = false; // limits apply only when the Store actually sells the add-on
 let proSku = PRO_SKU;
 let isPro = false;
