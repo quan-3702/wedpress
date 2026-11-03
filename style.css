@@ -117,3 +117,7 @@ table.guests { width: 100%; border-collapse: collapse; }
   .tabs button { padding: 8px 10px; }
   .guests th:nth-child(2), .guests td:nth-child(2) { display: none; }
 }
+
+/* feedback note */
+.fb-note { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.45; margin: 14px 0 4px; overflow-wrap: anywhere; }
+.fb-note a { color: inherit; text-decoration: underline; }

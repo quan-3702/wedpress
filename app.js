@@ -12,7 +12,21 @@ let proAvailable = false; // limits apply only when the Store actually sells the
 proAvailable = true; // owner's rule: Pro is never free – free limits apply everywhere (website, Store, offline) until Pro is bought
 let proSku = PRO_SKU;
 let isPro = false;
-try { isPro = localStorage.getItem('wedpress-pro') === '1'; } catch (_) {}
+// saved Pro flag: the website never trusts it (web visitors cannot buy there); the Store app trusts it for 30 days after the Store last confirmed the purchase
+const HAS_STORE = typeof window !== 'undefined' && 'getDigitalGoodsService' in window, PRO_OK_DAYS = 30;
+function cachedPro() {
+  try {
+    if (!HAS_STORE || localStorage.getItem('wedpress-pro') !== '1') return false;
+    const ok = localStorage.getItem('wedpress-pro-ok'), now = Date.now();
+    if (ok === null) { localStorage.setItem('wedpress-pro-ok', String(now)); return true; } // saved by an older version: counts as confirmed now, once
+    const t = Number(ok);
+    return t > 0 && t <= now + 86400000 && now - t < PRO_OK_DAYS * 86400000; // a date in the future or garbage is not trusted
+  } catch (_) { return false; }
+}
+function storePro(owned) { // only when the Store really answered
+  try { if (owned) { localStorage.setItem('wedpress-pro', '1'); localStorage.setItem('wedpress-pro-ok', String(Date.now())); } else { localStorage.removeItem('wedpress-pro'); localStorage.removeItem('wedpress-pro-ok'); } } catch (_) {}
+}
+isPro = cachedPro();
 const unlocked = () => isPro || !proAvailable;
 async function billing() {
   if (!('getDigitalGoodsService' in window)) return null;
@@ -20,7 +34,6 @@ async function billing() {
 }
 function setPro(v) {
   isPro = v;
-  try { localStorage.setItem('wedpress-pro', v ? '1' : '0'); } catch (_) {}
   const b = $('proBtn');
   b.textContent = v ? '★ Pro' : '★ Get Pro';
   b.classList.toggle('is-pro', v);
@@ -43,7 +56,7 @@ async function checkPro() {
     if (details[0]) { proSku = details[0].itemId; if (!PRO_IDS.includes(proSku)) PRO_IDS.push(proSku); }
     const list = await svc.listPurchases();
     const owned = list.some((p) => PRO_IDS.includes(p.itemId));
-    if (owned || details.length) { setPro(owned); return owned; }
+    if (owned || details.length) { storePro(owned); setPro(owned); return owned; }
     setPro(isPro); // Store did not answer (offline): keep what we knew
     return isPro;
   } catch (_) { return isPro; }
@@ -432,6 +445,14 @@ function pages() {
   return [];
 }
 let page = 0;
+const usesPro = () => !unlocked() && ((plan.print.kind !== 'caterer' && !!st().pro) || plan.guests.length > FREE_GUESTS); // a big poster on screen is no more than the free Letter chart
+// on-screen only: a repeated "PREVIEW" over printouts that use Pro options, so a screenshot is not the paid output (never printed or saved)
+function previewMark(W, H) {
+  const fs = Math.min(W, H) * 0.06, dy = fs * 3.2, dx = W / 3;
+  let s = `<g pointer-events="none" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="${fs.toFixed(1)}" fill="#c0265a" fill-opacity=".3" text-anchor="middle">`;
+  for (let r = 0, y = fs * 2; y < H; r++, y += dy) for (let x = (r % 2) * dx / 2; x < W + dx / 2; x += dx) s += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" transform="rotate(-20 ${x.toFixed(1)} ${y.toFixed(1)})">PREVIEW ★ Pro</text>`;
+  return s + '</g>';
+}
 function renderPrint() {
   const P = plan.print;
   $('kinds').innerHTML = Object.entries(KINDS).map(([k, n]) => `<button data-k="${k}" class="${P.kind === k ? 'on' : ''}">${n}</button>`).join('');
@@ -451,7 +472,9 @@ function renderPrint() {
   if (isCard && document.activeElement !== $('pWords')) $('pWords').value = P.words[P.kind] != null ? P.words[P.kind] : DEFAULT_WORDS[P.kind];
   const ps = pages();
   page = Math.min(page, ps.length - 1);
-  $('preview').innerHTML = ps[page].svg.replace(/ width="[\d.]+" height="[\d.]+"/, ' preserveAspectRatio="xMidYMid meet"');
+  let svg = ps[page].svg.replace(/ width="[\d.]+" height="[\d.]+"/, ' preserveAspectRatio="xMidYMid meet"');
+  if (usesPro()) svg = svg.replace(/<\/svg>$/, previewMark(ps[page].w, ps[page].h) + '</svg>'); // free users see Pro options marked as a preview
+  $('preview').innerHTML = svg;
   $('pgInfo').textContent = `Page ${page + 1} of ${ps.length}`;
   $('pgPrev').disabled = page === 0; $('pgNext').disabled = page >= ps.length - 1;
   const usesSample = ['place', 'escort'].includes(P.kind) && !seatedGuests().length;
@@ -653,6 +676,7 @@ $('photoDel').onclick = () => { plan.print.photo = ''; save(); renderPrint(); };
 $('pgPrev').onclick = () => { page = Math.max(0, page - 1); renderPrint(); };
 $('pgNext').onclick = () => { page += 1; renderPrint(); };
 $('pPrint').onclick = printNow; $('pSave').onclick = savePicture;
+window.addEventListener('afterprint', () => { $('printArea').innerHTML = ''; }); // the browser's own print menu must not print an old page again
 document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); if (tab !== 'print') showTab('print'); printNow(); } }); // Ctrl+P would print an empty or old page
 
 // menu, backups, Pro
