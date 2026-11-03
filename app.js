@@ -9,7 +9,7 @@ const PRO_SKU = 'wedpress_pro';
 const PRO_IDS = [PRO_SKU];
 let STORE_URL = 'https://apps.microsoft.com/detail/9NQXVXZFTPCF';
 let proAvailable = false; // limits apply only when the Store actually sells the add-on
-try { if ('getDigitalGoodsService' in window && localStorage.getItem('wedpress-proavail') === '1') proAvailable = true; } catch (_) {} // keep Pro limits when offline
+proAvailable = true; // owner's rule: Pro is never free – free limits apply everywhere (website, Store, offline) until Pro is bought
 let proSku = PRO_SKU;
 let isPro = false;
 try { isPro = localStorage.getItem('wedpress-pro') === '1'; } catch (_) {}
@@ -40,7 +40,6 @@ async function checkPro() {
   if (!svc) return false;
   try {
     const details = await svc.getDetails(PRO_IDS).catch(() => []);
-    if (details.length) { proAvailable = true; try { localStorage.setItem('wedpress-proavail', '1'); } catch (_) {} }
     if (details[0]) { proSku = details[0].itemId; if (!PRO_IDS.includes(proSku)) PRO_IDS.push(proSku); }
     const list = await svc.listPurchases();
     const owned = list.some((p) => PRO_IDS.includes(p.itemId));
@@ -58,6 +57,7 @@ async function openPro(reason) {
     $('restoreBtn').hidden = false;
     try {
       const [d] = await svc.getDetails([proSku]);
+      if (!d) proMessage((reason ? reason + ' ' : '') + 'Pro is being added to the Microsoft Store and will be on sale very soon – please check again in a day or two.');
       const price = d && d.price ? new Intl.NumberFormat(undefined, { style: 'currency', currency: d.price.currency }).format(Number(d.price.value)) : '';
       $('buyBtn').textContent = price ? `Unlock Pro – ${price}` : 'Unlock Pro';
     } catch (_) { $('buyBtn').textContent = 'Unlock Pro'; }
@@ -478,6 +478,7 @@ function tiles(p) {
 const isBigChart = () => plan.print.kind === 'chart' && !['letter', 'a4'].includes(plan.print.size);
 function printNow() {
   const P = plan.print;
+  if (plan.guests.length > FREE_GUESTS && needsPro(`This plan has ${plan.guests.length} guests. The free version holds ${FREE_GUESTS} guests – remove some to print for free, or unlock Pro for any number of guests. Backup and CSV export stay free.`)) return;
   if (P.kind !== 'caterer' && !styleOk()) return;
   if (isBigChart() && needsPro('Big seating chart posters are part of Pro. The Letter and A4 chart is free.')) return;
   const ps = pages();
@@ -659,7 +660,7 @@ $('moreBtn').onclick = (e) => { e.stopPropagation(); $('menu').hidden = !$('menu
 document.addEventListener('click', () => { $('menu').hidden = true; });
 $('backupBtn').onclick = () => download(new Blob([JSON.stringify({ app: 'wedpress', v: 1, plan })], { type: 'application/json' }), `${(plan.couple || 'wedding').replace(/[\\/:*?"<>|&]+/g, ' ').trim() || 'wedding'}.wedpress.json`);
 $('restoreBtn2').onclick = () => pickFile('.json,application/json', async (f) => {
-  try { const d = JSON.parse(await f.text()); if (d.app !== 'wedpress' || !d.plan) throw new Error('x'); if (!unlocked() && (d.plan.guests || []).length > FREE_GUESTS) { openPro(`This backup has ${d.plan.guests.length} guests. The free version holds ${FREE_GUESTS} guests. Unlock Pro for any number of guests.`); return; } if (plan.guests.length && !confirm('Replace the plan on screen with the one from this backup file?')) return; plan = normalize(d.plan); save(); renderAll(); toast('Backup opened'); }
+  try { const d = JSON.parse(await f.text()); if (d.app !== 'wedpress' || !d.plan) throw new Error('x'); if (!unlocked() && (d.plan.guests || []).length > FREE_GUESTS) { openPro(`This backup has ${d.plan.guests.length} guests. The free version holds ${FREE_GUESTS} guests. Unlock Pro for any number of guests.`); return; } if (plan.guests.length && !confirm('Replace the plan on screen with the one from this backup file?')) return; plan = normalize(d.plan); let note = ''; if (!unlocked()) { const P = plan.print; if ((STYLES[P.style] || {}).pro) { P.style = 'ivory'; note = ' – its Pro style was switched to Classic ivory'; } if (!['letter', 'a4'].includes(P.size)) P.size = P.paper === 'a4' ? 'a4' : 'letter'; } save(); renderAll(); toast('Backup opened' + note); }
   catch (_) { toast('That file is not a WedPress backup'); }
 });
 $('csvOutBtn').onclick = exportCsv;
