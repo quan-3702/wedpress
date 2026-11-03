@@ -9,6 +9,7 @@ const PRO_SKU = 'wedpress_pro';
 const PRO_IDS = [PRO_SKU];
 let STORE_URL = 'https://apps.microsoft.com/detail/9NQXVXZFTPCF';
 let proAvailable = false; // limits apply only when the Store actually sells the add-on
+try { if ('getDigitalGoodsService' in window && localStorage.getItem('wedpress-proavail') === '1') proAvailable = true; } catch (_) {} // keep Pro limits when offline
 let proSku = PRO_SKU;
 let isPro = false;
 try { isPro = localStorage.getItem('wedpress-pro') === '1'; } catch (_) {}
@@ -26,17 +27,26 @@ function setPro(v) {
   b.hidden = !proAvailable && !v;
   renderAll();
 }
+async function checkProAfterBuy() {
+  for (let i = 0; i < 6; i++) {
+    if (await checkPro()) return true;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  proMessage('Thank you! If Pro is not unlocked within a minute, click “Restore purchase”.');
+  return false;
+}
 async function checkPro() {
   const svc = await billing();
   if (!svc) return false;
   try {
     const details = await svc.getDetails(PRO_IDS).catch(() => []);
-    proAvailable = details.length > 0;
+    if (details.length) { proAvailable = true; try { localStorage.setItem('wedpress-proavail', '1'); } catch (_) {} }
     if (details[0]) { proSku = details[0].itemId; if (!PRO_IDS.includes(proSku)) PRO_IDS.push(proSku); }
     const list = await svc.listPurchases();
     const owned = list.some((p) => PRO_IDS.includes(p.itemId));
-    setPro(owned);
-    return owned;
+    if (owned || details.length) { setPro(owned); return owned; }
+    setPro(isPro); // Store did not answer (offline): keep what we knew
+    return isPro;
   } catch (_) { return isPro; }
 }
 function proMessage(text) { const m = $('proMsg'); m.hidden = !text; m.textContent = text || ''; }
@@ -69,7 +79,7 @@ async function buyPro() {
     proMessage('Purchase could not be completed: ' + (e.message || e));
     return;
   }
-  if (await checkPro()) { proMessage('Thank you! Pro is unlocked. ★'); setTimeout(() => $('proDialog').close(), 1500); }
+  if (await checkProAfterBuy()) { proMessage('Thank you! Pro is unlocked. ★'); setTimeout(() => $('proDialog').close(), 1500); }
 }
 function needsPro(reason) { if (unlocked()) return false; openPro(reason); return true; }
 
@@ -637,18 +647,19 @@ $('pSheetPaper').onchange = (e) => pset('sheetPaper', e.target.value);
 $('pMeal').onchange = (e) => pset('meal', e.target.checked);
 $('pHeading').addEventListener('input', (e) => pset('heading', e.target.value));
 $('pWords').addEventListener('input', (e) => { plan.print.words[plan.print.kind] = e.target.value; save(); renderPrint(); });
-$('photoBtn').onclick = () => pickFile('image/*', async (f) => { plan.print.photo = await shrinkPhoto(f); save(); renderPrint(); });
+$('photoBtn').onclick = () => pickFile('image/*', async (f) => { try { plan.print.photo = await shrinkPhoto(f); } catch (_) { return; } save(); renderPrint(); }); // shrinkPhoto already shows a message
 $('photoDel').onclick = () => { plan.print.photo = ''; save(); renderPrint(); };
 $('pgPrev').onclick = () => { page = Math.max(0, page - 1); renderPrint(); };
 $('pgNext').onclick = () => { page += 1; renderPrint(); };
 $('pPrint').onclick = printNow; $('pSave').onclick = savePicture;
+document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); if (tab !== 'print') showTab('print'); printNow(); } }); // Ctrl+P would print an empty or old page
 
 // menu, backups, Pro
 $('moreBtn').onclick = (e) => { e.stopPropagation(); $('menu').hidden = !$('menu').hidden; };
 document.addEventListener('click', () => { $('menu').hidden = true; });
 $('backupBtn').onclick = () => download(new Blob([JSON.stringify({ app: 'wedpress', v: 1, plan })], { type: 'application/json' }), `${(plan.couple || 'wedding').replace(/[\\/:*?"<>|&]+/g, ' ').trim() || 'wedding'}.wedpress.json`);
 $('restoreBtn2').onclick = () => pickFile('.json,application/json', async (f) => {
-  try { const d = JSON.parse(await f.text()); if (d.app !== 'wedpress' || !d.plan) throw new Error('x'); if (plan.guests.length && !confirm('Replace the plan on screen with the one from this backup file?')) return; plan = normalize(d.plan); save(); renderAll(); toast('Backup opened'); }
+  try { const d = JSON.parse(await f.text()); if (d.app !== 'wedpress' || !d.plan) throw new Error('x'); if (!unlocked() && (d.plan.guests || []).length > FREE_GUESTS) { openPro(`This backup has ${d.plan.guests.length} guests. The free version holds ${FREE_GUESTS} guests. Unlock Pro for any number of guests.`); return; } if (plan.guests.length && !confirm('Replace the plan on screen with the one from this backup file?')) return; plan = normalize(d.plan); save(); renderAll(); toast('Backup opened'); }
   catch (_) { toast('That file is not a WedPress backup'); }
 });
 $('csvOutBtn').onclick = exportCsv;
@@ -661,7 +672,7 @@ $('closePro').onclick = () => $('proDialog').close();
 
 (async () => {
   try { const p = await dbGet('plan'); if (p) plan = normalize(p); } catch (_) {}
-  renderAll();
+  setPro(isPro); // show the Pro button from what we know (also when the Store does not answer offline), then renders
   checkPro();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
